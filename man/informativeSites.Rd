@@ -4,12 +4,19 @@
 \alias{informativeSites}
 \title{informativeSites}
 \usage{
-informativeSites(alignment = NULL, count = TRUE, ambiguities = TRUE)
+informativeSites(
+  alignment = NULL,
+  count = TRUE,
+  variable.sites = FALSE,
+  ambiguities = TRUE
+)
 }
 \arguments{
 \item{alignment}{alignment in ape DNABin or a matrix format}
 
 \item{count}{Whethe to return the count of parsimoney informative sites (TRUE) or the proportion (FALSE)}
+
+\item{variable.sites}{TRUE to calculate variable sites instead of parsimony informative}
 
 \item{ambiguities}{Whether to consider ambiguities (TRUE) or not (FALSE)}
 }

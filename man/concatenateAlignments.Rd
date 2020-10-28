@@ -6,19 +6,21 @@
 \usage{
 concatenateAlignments(
   alignment.folder = NULL,
-  file.name = NULL,
-  output.dir = NULL,
-  partition.format = c("raxml", "table", "none")
+  output.name = NULL,
+  overwrite = FALSE,
+  partition.file = TRUE,
+  output.format = c("phylip", "nexus", "fasta", "all"),
+  partition.format = c("raxml", "table", "all")
 )
 }
 \arguments{
 \item{alignment.folder}{folder that contains aligmnents to be concatenated}
 
-\item{file.name}{output file name}
-
-\item{output.dir}{directory to save file to}
+\item{output.name}{output file name}
 
 \item{partition.format}{partition file format. Can select both.}
+
+\item{output.dir}{directory to save file to}
 }
 \value{
 saves to file concatenated alignments and partition files delimiting the coordinates of each indidividual marker

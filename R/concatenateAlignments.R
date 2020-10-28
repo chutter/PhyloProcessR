@@ -4,7 +4,7 @@
 #'
 #' @param alignment.folder folder that contains aligmnents to be concatenated
 #'
-#' @param file.name output file name
+#' @param output.name output file name
 #'
 #' @param output.dir directory to save file to
 #'
@@ -23,32 +23,55 @@
 
 
 concatenateAlignments = function(alignment.folder = NULL,
-                                 file.name = NULL,
-                                 output.dir = NULL,
-                                 partition.format = c("raxml", "table", "none")) {
+                                 output.name = NULL,
+                                 overwrite = FALSE,
+                                 partition.file = TRUE,
+                                 output.format = c("phylip", "nexus", "fasta", "all"),
+                                 partition.format = c("raxml", "table", "all")) {
+
+  #Debug
+ # setwd("/Volumes/Rodents/Shrew_Project/Alignments")
+#  alignment.folder = "/Volumes/Rodents/Shrew_Project/Alignments/uce-to-genes"
+ # output.name = "test-dataset"
+#  overwrite = FALSE
+ # partition.file = TRUE
+#  output.format = "all"
+#  partition.format = "all"
 
   #Parameter checks
   if(is.null(alignment.folder) == TRUE){ stop("Error: a folder of alignments is needed.") }
-  if(is.null(file.name) == TRUE){ stop("Error: an output file name is needed.") }
-  if(is.null(output.dir) == TRUE){ stop("Error: an output directory is needed.") }
+  if(is.null(output.name) == TRUE){ stop("Error: an output file name is needed.") }
+  if(length(output.format) != 1){ stop("Error: please select a single output format or 'all' to save files in all formats.") }
+  if(length(partition.format) != 1){ stop("Error: please select a single partition format or 'all' to save files in all formats.") }
 
   #Check if files exist or not
   if (dir.exists(alignment.folder) == F){
     return(paste0("Directory of alignments could not be found. Exiting."))
   }#end file check
 
+  #Checks output overwrite
+  if (overwrite == TRUE){
+    if (file.exists(paste0(output.name, ".phy")) == TRUE){ system(paste0("rm ", output.name, ".phy")) }
+    if (file.exists(paste0(output.name, ".nex")) == TRUE){ system(paste0("rm ", output.name, ".nex")) }
+    if (file.exists(paste0(output.name, ".fa")) == TRUE){ system(paste0("rm ", output.name, ".fa")) }
+  } else {
+    if (file.exists(paste0(output.name, ".phy")) == TRUE){ return("FIle exists and overwrite == FALSE") }
+    if (file.exists(paste0(output.name, ".nex")) == TRUE){ return("FIle exists and overwrite == FALSE") }
+    if (file.exists(paste0(output.name, ".fa")) == TRUE){ return("FIle exists and overwrite == FALSE") }
+  }#end overwrite if
+
   #Gets list of alignments
   align.files = list.files(alignment.folder, full.names = T)
-  align.list = lapply(align.files, function (x) fread(x, header = T))
+  align.list = lapply(align.files, function (x) data.table::fread(x, header = T))
   sample.names = unique(unlist(lapply(align.list, function (x) x[,1])))
   sample.names = sample.names[order(sample.names)]
 
   #sets up data collection for proportion
   feat.headers = c("Marker", "Length", "Start", "End")
-  feature.data = data.table(matrix(as.numeric(0),
+  feature.data = data.table::data.table(matrix(as.numeric(0),
                                    nrow = length(align.files),
                                    ncol = length(feat.headers)))
-  setnames(feature.data, feat.headers)
+  data.table::setnames(feature.data, feat.headers)
   feature.data[, Marker:=as.character(Marker)]
 
   #Gets the names and number of columns
@@ -57,16 +80,16 @@ concatenateAlignments = function(alignment.folder = NULL,
 
   #For the concatenated alignment
   concat.headers = c("Sample", names(align.list))
-  concat.data = data.table(matrix(as.character("n"), nrow = length(sample.names),
+  concat.data = data.table::data.table(matrix(as.character("n"), nrow = length(sample.names),
                             ncol = length(concat.headers)))
-  setnames(concat.data, concat.headers)
+  data.table::setnames(concat.data, concat.headers)
   concat.data[, Sample:=as.character(sample.names)]
 
   # Add columns with generated name with standardized length
   start = 1
   for (x in 2:ncol(concat.data)) {
 
-    align = data.table(align.list[[x-1]])
+    align = data.table::data.table(align.list[[x-1]])
     align.len = as.numeric(colnames(align)[2])
     colnames(align) = c("Sample", "Sequence")
 
@@ -80,7 +103,7 @@ concatenateAlignments = function(alignment.folder = NULL,
       #Adds Ns in for each missing sample
       for (j in 1:length(miss.samples)){
         temp.seq = paste0(rep("n", align.len), collapse = "")
-        save.seq = data.table(Sample = miss.samples[j],
+        save.seq = data.table::data.table(Sample = miss.samples[j],
                               Sequence = temp.seq)
         align = rbind(align, save.seq)
       }#end j loop
@@ -88,7 +111,7 @@ concatenateAlignments = function(alignment.folder = NULL,
 
     align = align[order(align$Sample),]
 
-    set(concat.data, i = match(concat.data$Sample, align$Sample),
+    data.table::set(concat.data, i = match(concat.data$Sample, align$Sample),
         j = as.integer(x), value = align$Sequence)
 
     align.name = colnames(concat.data)[x]
@@ -96,85 +119,143 @@ concatenateAlignments = function(alignment.folder = NULL,
     if (start == 1){ end = start + align.len - 1 } else { end = start + align.len - 1 }
 
     #Saves location data
-    set(feature.data, i = as.integer(x-1), j = match("Marker", feat.headers), value =  align.name)
-    set(feature.data, i = as.integer(x-1), j = match("Length", feat.headers), value =  align.len)
-    set(feature.data, i = as.integer(x-1), j = match("Start", feat.headers), value =  start)
-    set(feature.data, i = as.integer(x-1), j = match("End", feat.headers), value =  end)
+    data.table::set(feature.data, i = as.integer(x-1), j = match("Marker", feat.headers), value =  align.name)
+    data.table::set(feature.data, i = as.integer(x-1), j = match("Length", feat.headers), value =  align.len)
+    data.table::set(feature.data, i = as.integer(x-1), j = match("Start", feat.headers), value =  start)
+    data.table::set(feature.data, i = as.integer(x-1), j = match("End", feat.headers), value =  end)
     start = end + 1
   }#end x loop
 
-  #Now have to reformat somehow
-  ntax = nrow(concat.data)
-  nchar = sum(feature.data$Length)
-  phy.header = paste(ntax, nchar)
+  ############
+  ### Turn data into a phylip format to then save differently
+  ############
 
-  #Prep sample names to all have the same length padded with spaces
-  name.length = max(nchar(sample.names)) + 5
-  for (x in 1:length(sample.names)){
-    temp.name = concat.data$Sample[x]
-    space.pad = name.length - nchar(temp.name)
-    space.add = paste(rep(" ", space.pad), collapse = "")
-    new.name = paste0(temp.name, space.add, collapse = "")
-    concat.data$Sample[x] = new.name
-  }#end x
+  #### SAVE AS FASTA
+  ###################
+  if (output.format == "fasta" | output.format == "fa" | output.format == "fas" | output.format == "all"){
+    #Fasta easy
+    fileConn = file(paste0(output.name, ".fa"), open = "a")
+    #Saves each line
+    for (x in 1:nrow(concat.data)){
+      writeLines(paste0(">", concat.data$Sample[x]), con = fileConn, sep = "\n")
+      sequence.data = paste0(concat.data[x,2:ncol(concat.data)], collapse = "")
+      writeLines(sequence.data, con = fileConn, sep = "\n")
+    }#end x loop
+    close(fileConn)
+    print(paste0(output.name, ".fa concatenated alignment written in fasta format."))
+  }#End fasta if
 
-  #Concatenated each sample into 1 sequence and write it to file as a text file
- # cat(phy, sep = "\n")
-  #write(phy, file = file)
+  #### SAVE AS NEXUS
+  ###################
+  if (output.format == "nexus" | output.format == "nex" | output.format == "all"){
 
-  if (file.exists(paste0(output.dir, "/", file.name, ".phy")) == TRUE){
-    unlink(paste0(output.dir, "/", file.name, ".phy"))}
+    #Gets header information
+    ntax = nrow(concat.data)
+    nchar = sum(feature.data$Length)
+    nex.header = paste0("dimensions ntax=", ntax, " nchar=", nchar, ";")
+    for.header = paste0("format datatype=dna missing=n gap=-;")
 
-  fileConn = file(paste0(output.dir, "/", file.name, ".phy"), open = "a")
-  writeLines(phy.header, con = fileConn, sep = "\n")
+    #Prep sample names to all have the same length padded with spaces
+    name.length = max(nchar(sample.names)) + 1
+    for (x in 1:length(sample.names)){
+      temp.name = concat.data$Sample[x]
+      space.pad = name.length - nchar(temp.name)
+      space.add = paste(rep(" ", space.pad), collapse = "")
+      new.name = paste0(temp.name, space.add, collapse = "")
+      concat.data$Sample[x] = new.name
+    }#end x
 
-  for (x in 1:nrow(concat.data)){
+    #Start saving file
+    fileConn = file(paste0(output.name, ".nex"), open = "a")
+    writeLines("#NEXUS", con = fileConn, sep = "\n")
+    writeLines("begin data;", con = fileConn, sep = "\n")
+    writeLines(paste0("\t", nex.header), con = fileConn, sep = "\n")
+    writeLines(paste0("\t", for.header), con = fileConn, sep = "\n")
+    writeLines("matrix", con = fileConn, sep = "\n")
 
-    sequence.data = paste0(concat.data[x,], collapse = "")
-    writeLines(sequence.data, con = fileConn, sep = "\n")
-
-  }#end x loop
-
-  close(fileConn)
-
-  print(paste0(file.name, ".phy concatenated alignment written in phylip format."))
-
-  ##########################
-  ##### Saves partition file
-  ##########################
-  #Saves in a simple table format
-  if (length(partition.format[partition.format == "table"]) == 1){
-    #Checks to overwrite
-    if (file.exists(paste0(output.dir, "/", file.name, "_partitions_table.txt")) == TRUE){
-      unlink(paste0(output.dir, "/", file.name, "_partitions_table.txt"))}
-
-    write.table(feature.data, file = paste0(output.dir, "/", file.name, "_partitions_table.txt"),
-                sep = "\t", row.names = FALSE, quote = FALSE)
-
-    print(paste0(file.name, "_partitions_table.txt written in table format."))
-  }#ends table if
-
-  #Save in raxml format
-  if (length(partition.format[partition.format == "raxml"]) == 1){
-    #Checks to overwrite
-    if (file.exists(paste0(output.dir, "/", file.name, "_partitions_raxml.txt")) == TRUE){
-      unlink(paste0(output.dir, "/", file.name, "_partitions_raxml.txt"))}
-
-    fileConn = file(paste0(output.dir, "/", file.name, "_partitions_raxml.txt"), open = "a")
-
-    for (x in 1:nrow(feature.data)){
-
-      writeLines(paste0("DNA, ", feature.data$Marker[x], " = ",
-                        feature.data$Start[x], "-", feature.data$End[x]),
-                 con = fileConn, sep = "\n")
-
+    #Saves each line
+    for (x in 1:nrow(concat.data)){
+      sequence.data = paste0(concat.data[x,], collapse = "")
+      writeLines(sequence.data, con = fileConn, sep = "\n")
     }#end x loop
 
+    #Closes file
+    writeLines(";", con = fileConn, sep = "\n")
+    writeLines("end;", con = fileConn, sep = "\n")
     close(fileConn)
+    #Done
+    print(paste0(output.name, ".nex concatenated alignment written in nexus format."))
 
-    print(paste0(file.name, "_partitions_raxml.txt written in raxml format."))
+  }#End nexus if
 
-  }#end raxml if
+  #### SAVE AS PHYLIP
+  ###################
+  if (output.format == "phylip" | output.format == "phy" | output.format == "all"){
+    #Now have to reformat
+    ntax = nrow(concat.data)
+    nchar = sum(feature.data$Length)
+    phy.header = paste(ntax, nchar)
+
+    #Prep sample names to all have the same length padded with spaces
+    name.length = max(nchar(sample.names)) + 4
+    for (x in 1:length(sample.names)){
+      temp.name = concat.data$Sample[x]
+      space.pad = name.length - nchar(temp.name)
+      space.add = paste(rep(" ", space.pad), collapse = "")
+      new.name = paste0(temp.name, space.add, collapse = "")
+      concat.data$Sample[x] = new.name
+    }#end x
+
+    fileConn = file(paste0(output.name, ".phy"), open = "a")
+    writeLines(phy.header, con = fileConn, sep = "\n")
+    #Saves each line
+    for (x in 1:nrow(concat.data)){
+      sequence.data = paste0(concat.data[x,], collapse = "")
+      writeLines(sequence.data, con = fileConn, sep = "\n")
+    }#end x loop
+    close(fileConn)
+    print(paste0(output.name, ".phy concatenated alignment written in phylip format."))
+  }#End phylip if
+
+  ####################################################################
+  ##### Saves partition files
+  ####################################################################
+  if (partition.file == TRUE){
+
+    #Saves in a simple table format
+    if (length(partition.format[partition.format == "table"]) == 1){
+      #Checks to overwrite
+      if (file.exists(paste0(output.name, "_partitions_table.txt")) == TRUE){
+        unlink(paste0(output.name, "_partitions_table.txt"))}
+
+      write.table(feature.data, file = paste0( output.name, "_partitions_table.txt"),
+                  sep = "\t", row.names = FALSE, quote = FALSE)
+
+      print(paste0(output.name, "_partitions_table.txt written in table format."))
+    }#ends table if
+
+    #Save in raxml format
+    if (length(partition.format[partition.format == "raxml"]) == 1){
+      #Checks to overwrite
+      if (file.exists(paste0(output.name, "_partitions_raxml.txt")) == TRUE){
+        unlink(paste0(output.name, "_partitions_raxml.txt"))}
+
+      fileConn = file(paste0(output.name, "_partitions_raxml.txt"), open = "a")
+
+      for (x in 1:nrow(feature.data)){
+
+        writeLines(paste0("DNA, ", feature.data$Marker[x], " = ",
+                          feature.data$Start[x], "-", feature.data$End[x]),
+                   con = fileConn, sep = "\n")
+
+      }#end x loop
+
+      close(fileConn)
+
+      print(paste0(output.name, "_partitions_raxml.txt written in raxml format."))
+
+    }#end raxml if
+  }#end partition if
 
 }#end function
 
